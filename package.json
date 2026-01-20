@@ -1,0 +1,15 @@
+{
+  "name": "discord-ticket-bot-js",
+  "version": "1.0.0",
+  "description": "Modular Discord ticket bot with sqlite3 (events/commands structure)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.0",
+    "sqlite3": "^5.1.6",
+    "dotenv": "^16.1.4"
+  }
+}
