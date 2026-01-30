@@ -1,18 +1,46 @@
-# Discord Ticket Bot (modular)
+```md
+# 🤖 BotVilao – Discord Bot
 
-Structure:
-- src/events -> event handlers (ready, interactionCreate)
-- src/commands -> placeholder for future slash/utility commands
-- src/structures -> database wrapper (sqlite)
-- src/components, src/embeds -> UI components and embed builders
-- assets/visualx.png -> image used in embed (placeholder)
+Discord bot developed in **Node.js** using **discord.js v14**, focused on **administrative management**, **absence control**, **dismissals**, **user registry**, **member logs**, and advanced interactions through **Slash Commands, Buttons, Select Menus, and Modals**.
 
-Setup:
-1. Copy `.env.example` to `.env` and fill values.
-2. `npm install`
-3. `npm start`
+---
 
-Behavior:
-- On ready: ensures categories Suporte, Curso, Corregedoria exist and posts the ticket embed+select in CHANNEL_TICKET (if not already posted).
-- Creates private ticket channels on select, stores tickets in SQLite, and keeps state across restarts.
-- Includes a "Fechar Ticket" button to close tickets and saves transcripts in ./data/transcripts.
+## 🚀 Features
+
+- ✅ Slash Commands system
+- 📋 Action panel with interactive buttons and menus
+- 🧾 User registry updates (role, unit, course, etc.)
+- 🧑‍✈️ Dismissal and dismissal cancellation system
+- 📆 Absence management
+- 📨 Mass private message sending (DM)
+- 🧠 Local database using SQLite
+- 👮 Automatic member join/leave logs
+- 📦 Modular and scalable structure
+
+---
+
+## 🛠️ Technologies Used
+
+- Node.js
+- discord.js v14
+- SQLite
+- dotenv
+- ES Modules (import/export)
+
+---
+
+## 📁 Project Structure
+
+```bash
+botVilao/
+├── index.js
+├── package.json
+├── .env
+├── data/
+│   └── tickets.sqlite
+├── src/
+│   ├── commands/
+│   ├── events/
+│   ├── structures/
+│   └── config.js
+└── README.md
