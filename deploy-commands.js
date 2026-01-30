@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Caminho para a pasta de comandos
-const commandsPath = path.join(__dirname, "commands");
+const commandsPath = path.join(__dirname, "src/commands");
 
 const commands = [];
 

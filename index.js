@@ -70,6 +70,38 @@ if (fs.existsSync(eventsPath)) {
   }
 }
 
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isUserSelectMenu()) return;
+  if (interaction.customId !== "dm_select") return;
+
+  // 🔥 ISSO AQUI É O MAIS IMPORTANTE
+  await interaction.deferUpdate();
+
+  const mensagem = interaction.client.dmMessages.get(interaction.user.id);
+  if (!mensagem) return;
+
+  let enviados = 0;
+  let falhas = 0;
+
+  for (const user of interaction.users.values()) {
+    try {
+      await user.send(mensagem);
+      enviados++;
+    } catch {
+      falhas++;
+    }
+  }
+
+  interaction.client.dmMessages.delete(interaction.user.id);
+
+  // agora pode editar com segurança
+  await interaction.editReply({
+    content: `📨 DM enviada!\n✅ Sucesso: ${enviados}\n❌ Falha: ${falhas}`,
+    components: []
+  });
+});
+
+
 // Handler para mensagens (para exoneração)
 client.on('messageCreate', async (message) => {
   try {
