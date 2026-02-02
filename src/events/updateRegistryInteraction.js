@@ -1,12 +1,12 @@
-import { 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
-    StringSelectMenuBuilder, 
-    ModalBuilder, 
-    TextInputBuilder, 
-    TextInputStyle, 
+import {
+    EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
+    StringSelectMenuBuilder,
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
     RoleSelectMenuBuilder,
     UserSelectMenuBuilder
 } from 'discord.js';
@@ -18,14 +18,14 @@ const tempUserSelection = new Map();
 // Mapeamento de IDs de Cargo para Abreviações
 // O usuário deve preencher com os IDs reais dos cargos no Discord.
 const ROLE_ABBREVIATIONS = {
-     "1428418512275243192": "SD",
-     "1428418511339782227": "CB",
-     "1428418510610108597": "3º SGT",
-     "1428418509398081698": "2º SGT",
-     "1428418508336926820": "1º SGT",
-     "1428418507044945950": "STEN",
-     "1428418506042638518": "2ºTEN",
-     "1428418504469516511": "1ºTEN",
+    "1428418512275243192": "SD",
+    "1428418511339782227": "CB",
+    "1428418510610108597": "3º SGT",
+    "1428418509398081698": "2º SGT",
+    "1428418508336926820": "1º SGT",
+    "1428418507044945950": "STEN",
+    "1428418506042638518": "2ºTEN",
+    "1428418504469516511": "1ºTEN",
 };
 
 // Função para obter a abreviação usando o ID do cargo
@@ -50,8 +50,8 @@ async function sendUpdatePanel(client) {
     }
 
     const embed = new EmbedBuilder()
-        .setAuthor({ 
-            name: "Batalhão de Policia Militar Villa 2025", 
+        .setAuthor({
+            name: "Batalhão de Policia Militar Villa 2025",
         })
         .setTitle(" ")
         .setDescription(
@@ -66,7 +66,7 @@ async function sendUpdatePanel(client) {
         )
         .setColor("#131416")
         .setImage("https://cdn.discordapp.com/attachments/1428418733734625315/1428427557455532142/Group_2.png?ex=68f27654&is=68f124d4&hm=8cd33b7cbd224f9b0a09a2ce5471eae54b1783deae03127458ae1de7d157cee6&")
-        .setFooter({ 
+        .setFooter({
             text: "Polícia Militar APP • " + new Date().toLocaleDateString("pt-BR"),
             iconURL: "https://cdn.discordapp.com/attachments/1428418733734625315/1428427890529275944/BPMV.png?ex=68f276a4&is=68f12524&hm=68f254205a3f65ede78297ec501c17df084c640f312555b951d7179a7aeb6a36&"
         })
@@ -76,26 +76,26 @@ async function sendUpdatePanel(client) {
         .setCustomId("update_type_select")
         .setPlaceholder("Selecione o tipo de atualização")
         .addOptions([
-            { 
-                label: "Atualizar Registro", 
+            {
+                label: "Atualizar Registro",
                 description: "Atualize suas informações básicas",
                 value: "update_basic_info",
                 emoji: "<:atualizar:1422309803002298398>"
             },
-            { 
-                label: "Promoção de Patente", 
+            {
+                label: "Promoção de Patente",
                 description: "Solicite atualização de patente",
                 value: "update_rank",
                 emoji: "<:estrela:1422308556035723394>"
             },
-            { 
-                label: "Solicitar Unidade", 
+            {
+                label: "Solicitar Unidade",
                 description: "Transferência ou designação de unidade",
                 value: "update_unit",
                 emoji: "<:membros:1422308560053735444>"
             },
-            { 
-                label: "Solicitar Curso", 
+            {
+                label: "Solicitar Curso",
                 description: "Certificação de conclusão de curso",
                 value: "update_course",
                 emoji: "<:curso:1422311480727965726>"
@@ -106,31 +106,31 @@ async function sendUpdatePanel(client) {
 
     // VERIFICAÇÃO MELHORADA: Checar se já existe qualquer mensagem no canal
     const messages = await channel.messages.fetch({ limit: 10 }).catch(() => null);
-    
+
     if (messages && messages.size > 0) {
         console.log(`[UpdateRegistry] Canal ${channel.name} já possui mensagens. Não será enviada nova embed.`);
         console.log(`[UpdateRegistry] Total de mensagens encontradas: ${messages.size}`);
-        
+
         // Apenas atualiza os componentes se encontrar a mensagem do bot
-        const botMessage = messages.find(m => 
-            m.author.id === client.user.id && 
-            m.embeds.length > 0 && 
+        const botMessage = messages.find(m =>
+            m.author.id === client.user.id &&
+            m.embeds.length > 0 &&
             m.embeds[0].description?.includes("🔄 ATUALIZAÇÃO DE REGISTRO")
         );
-        
+
         if (botMessage) {
             await botMessage.edit({ embeds: [embed], components: [row] }).catch(err => {
                 console.error("[UpdateRegistry] Falha ao atualizar componentes:", err);
             });
             console.log("[UpdateRegistry] Componentes da mensagem existente atualizados.");
         }
-        
+
         return; // IMPORTANTE: Para aqui, não envia nova mensagem
     }
 
     // Canal está vazio, pode enviar a embed
     console.log(`[UpdateRegistry] Canal ${channel.name} está vazio. Enviando embed de atualização...`);
-    
+
     await channel.send({ embeds: [embed], components: [row] });
     console.log("[UpdateRegistry] Painel de atualização enviado com sucesso.");
 }
@@ -139,16 +139,16 @@ async function sendUpdatePanel(client) {
 async function handleButtonInteraction(interaction) {
     // IMPORTANTE: Sempre defer ou reply imediatamente
     if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferUpdate().catch(() => {});
+        await interaction.deferUpdate().catch(() => { });
     }
 
     if (interaction.customId.startsWith("accept_")) {
-        const [ , roleId, userId ] = interaction.customId.split("_");
+        const [, roleId, userId] = interaction.customId.split("_");
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
         const role = interaction.guild.roles.cache.get(roleId);
 
         if (!member || !role) {
-            return interaction.followUp({ content: "❌ Usuário ou cargo não encontrado.", ephemeral: true }).catch(() => {});
+            return interaction.followUp({ content: "❌ Usuário ou cargo não encontrado.", ephemeral: true }).catch(() => { });
         }
 
         // Detectar a categoria do cargo
@@ -176,85 +176,85 @@ async function handleButtonInteraction(interaction) {
             }
         }
 
-// Adiciona o cargo solicitado
-	        await member.roles.add(role).catch(() => null);
+        // Adiciona o cargo solicitado
+        await member.roles.add(role).catch(() => null);
 
-		        // Lógica para atualizar o apelido (nickname)
-		        // O apelido será no formato: "Cargo | Nome Sobrenome #Passaporte"
-		        
-		        // NOTA: Assumindo que a função 'getRegistryData' existe e busca as informações
-		        // do usuário (nome, sobrenome, passaporte) em um banco de dados ou cache.
-		        // Esta função 'getRegistryData' PRECISA ser implementada/importada
-		        // em outro lugar, pois não está visível neste arquivo.
-		        
-		        // Exemplo de como ficaria a chamada (com a função fictícia 'getRegistryData'):
-		        // const entry = await getRegistryData(userId);
-		        // if (entry) {
-		        //     const newNickname = `${role.name} | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}`;
-		        //     await member.setNickname(newNickname).catch(err => {
-		        //         console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
-		        //     });
-		        // } else {
-		        //     console.error(`[UpdateRegistry] Dados de registro não encontrados para o usuário ${userId}. Apelido não atualizado.`);
-		        // }
+        // Lógica para atualizar o apelido (nickname)
+        // O apelido será no formato: "Cargo | Nome Sobrenome #Passaporte"
 
-			        // Lógica para atualização PARCIAL do apelido (apenas o cargo)
-			        // O objetivo é substituir o cargo, mantendo o restante do apelido (nome #passaporte).
-			        
-				        let currentNickname = member.nickname || member.user.username;
-				        
-				        // 0. Remoção de caracteres indesejados (como '・' ou '・' ou '.')
-				        // Aplica a remoção no apelido atual antes de qualquer processamento
-					        // Remoção agressiva de caracteres indesejados no início da string.
-// Revertendo a remoção agressiva. A limpeza do '・' será feita apenas na parte do nome/passaporte.
-				        
-				        let nameAndPassport = currentNickname;
-				        
-				        // 1. Tenta identificar e remover o prefixo de cargo antigo (Ex: "3ºsgt | ")
-				        const pipeIndex = currentNickname.indexOf(' | ');
-				        // Se o apelido começar com o cargo, removemos o cargo para obter apenas o nome/passaporte
-				        if (pipeIndex !== -1) {
-				            // Se encontrar o separador, assume que o restante é o nome #passaporte
-				            nameAndPassport = currentNickname.substring(pipeIndex + 3).trim();
-				            
-				            // Aplica a remoção do caractere '・' (U+30FB) e outros pontos na parte do nome/passaporte
-				            nameAndPassport = nameAndPassport.replace(/[\u30FB\u00B7\u2022]/g, '').trim();
-			        } else {
-			            // Se não encontrar, usa o nome de usuário do Discord como fallback,
-			            // já que o nome #passaporte depende de dados externos.
-			            nameAndPassport = member.user.username;
-			        }
-			        
+        // NOTA: Assumindo que a função 'getRegistryData' existe e busca as informações
+        // do usuário (nome, sobrenome, passaporte) em um banco de dados ou cache.
+        // Esta função 'getRegistryData' PRECISA ser implementada/importada
+        // em outro lugar, pois não está visível neste arquivo.
 
-			        
-				        // 2. Constrói o novo apelido completo
-				        
-					        // 2. Constrói o novo apelido completo
-					        
-						        // Converte o nome do cargo para a abreviação solicitada
-						        const roleAbbreviation = getRoleAbbreviation(roleId, role.name);
-					        
-					        const newNickname = `${roleAbbreviation} | ${nameAndPassport}`;
-			        
-			        await member.setNickname(newNickname).catch(err => {
-			            console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
-			        });
+        // Exemplo de como ficaria a chamada (com a função fictícia 'getRegistryData'):
+        // const entry = await getRegistryData(userId);
+        // if (entry) {
+        //     const newNickname = `${role.name} | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}`;
+        //     await member.setNickname(newNickname).catch(err => {
+        //         console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
+        //     });
+        // } else {
+        //     console.error(`[UpdateRegistry] Dados de registro não encontrados para o usuário ${userId}. Apelido não atualizado.`);
+        // }
+
+        // Lógica para atualização PARCIAL do apelido (apenas o cargo)
+        // O objetivo é substituir o cargo, mantendo o restante do apelido (nome #passaporte).
+
+        let currentNickname = member.nickname || member.user.username;
+
+        // 0. Remoção de caracteres indesejados (como '・' ou '・' ou '.')
+        // Aplica a remoção no apelido atual antes de qualquer processamento
+        // Remoção agressiva de caracteres indesejados no início da string.
+        // Revertendo a remoção agressiva. A limpeza do '・' será feita apenas na parte do nome/passaporte.
+
+        let nameAndPassport = currentNickname;
+
+        // 1. Tenta identificar e remover o prefixo de cargo antigo (Ex: "3ºsgt | ")
+        const pipeIndex = currentNickname.indexOf(' | ');
+        // Se o apelido começar com o cargo, removemos o cargo para obter apenas o nome/passaporte
+        if (pipeIndex !== -1) {
+            // Se encontrar o separador, assume que o restante é o nome #passaporte
+            nameAndPassport = currentNickname.substring(pipeIndex + 3).trim();
+
+            // Aplica a remoção do caractere '・' (U+30FB) e outros pontos na parte do nome/passaporte
+            nameAndPassport = nameAndPassport.replace(/[\u30FB\u00B7\u2022]/g, '').trim();
+        } else {
+            // Se não encontrar, usa o nome de usuário do Discord como fallback,
+            // já que o nome #passaporte depende de dados externos.
+            nameAndPassport = member.user.username;
+        }
+
+
+
+        // 2. Constrói o novo apelido completo
+
+        // 2. Constrói o novo apelido completo
+
+        // Converte o nome do cargo para a abreviação solicitada
+        const roleAbbreviation = getRoleAbbreviation(roleId, role.name);
+
+        const newNickname = `${roleAbbreviation} | ${nameAndPassport}`;
+
+        await member.setNickname(newNickname).catch(err => {
+            console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
+        });
 
         // Edita a embed para aprovado
         const embed = EmbedBuilder.from(interaction.message.embeds[0])
             .setFooter({ text: `✅ Aprovado por ${interaction.user.tag}` })
             .setColor("Green");
 
-        await interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
-        
+        await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
         // Notifica o usuário
         try {
             await member.send(`✅ Sua solicitação de **${role.name}** foi aprovada!`);
-        } catch (e) {}
+        } catch (e) { }
     }
 
     if (interaction.customId.startsWith("reject_")) {
-        const [ , userId ] = interaction.customId.split("_");
+        const [, userId] = interaction.customId.split("_");
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
 
         // Edita a embed para recusado
@@ -262,13 +262,13 @@ async function handleButtonInteraction(interaction) {
             .setFooter({ text: `❌ Recusado por ${interaction.user.tag}` })
             .setColor("Red");
 
-        await interaction.editReply({ embeds: [embed], components: [] }).catch(() => {});
-        
+        await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
         // Notifica o usuário
         if (member) {
             try {
                 await member.send(`❌ Sua solicitação foi recusada pela staff.`);
-            } catch (e) {}
+            } catch (e) { }
         }
     }
 }
@@ -444,7 +444,7 @@ async function handleRankSelection(interaction) {
             "Patente Solicitada": role.name,
             "Usuário": `${member}`
         }, roleId, member);
-        
+
         await interaction.reply({ content: `✅ Solicitação enviada para promoção de **${member}** para **${role.name}**.`, ephemeral: true });
     }
 }
@@ -466,7 +466,7 @@ async function handleUnitSelection(interaction) {
             "Unidade Solicitada": role.name,
             "Usuário": `${member}`
         }, roleId, member);
-        
+
         await interaction.reply({ content: `✅ Solicitação de unidade **${role.name}** enviada para **${member}**.`, ephemeral: true });
     }
 }
@@ -488,7 +488,7 @@ async function handleCourseSelection(interaction) {
             "Curso Solicitado": role.name,
             "Usuário": `${member}`
         }, roleId, member);
-        
+
         await interaction.reply({ content: `✅ Solicitação de curso **${role.name}** enviada para **${member}**.`, ephemeral: true });
     }
 }
