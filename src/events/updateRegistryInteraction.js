@@ -155,13 +155,24 @@ async function handleButtonInteraction(interaction) {
         let category = null;
         if (config.patenteRoleIds.includes(roleId)) category = "patenteRoleIds";
         else if (config.unidadeRoleIds.includes(roleId)) category = "unidadeRoleIds";
-        //else if (config.cursoRoleIds.includes(roleId)) category = "cursoRoleIds";
+        else if (config.cursoRoleIds.includes(roleId)) category = "cursoRoleIds";
 
         // Remove todos os cargos daquela categoria antes de adicionar o novo
         if (category) {
-            const rolesToRemove = config[category].filter(r => r !== roleId);
+            // Calcula apenas os cargos que o membro realmente possui e que pertencem
+            // à categoria configurada, excluindo o cargo que será adicionado.
+            const categoryIds = config[category].map(id => id.toString());
+            const rolesToRemove = member.roles.cache
+                .filter(r => categoryIds.includes(r.id) && r.id !== roleId)
+                .map(r => r.id);
+
             if (rolesToRemove.length > 0) {
-                await member.roles.remove(rolesToRemove).catch(() => null);
+                try {
+                    await member.roles.remove(rolesToRemove, 'Atualização de registro - substituição de cargo');
+                    console.log(`[UpdateRegistry] Removed roles ${rolesToRemove.join(', ')} from member ${member.id}`);
+                } catch (err) {
+                    console.error(`[UpdateRegistry] Falha ao remover cargos do membro ${member.id}:`, err);
+                }
             }
         }
 

@@ -35,9 +35,9 @@ export default {
   channelExit: process.env.CHANNEL_EXIT,
 
   // 🎖️ Patentes e unidades
-  patenteRoleIds: process.env.PATENTE_ROLE_IDS ? process.env.PATENTE_ROLE_IDS.split(",") : [],
-  unidadeRoleIds: process.env.UNIDADE_ROLE_IDS ? process.env.UNIDADE_ROLE_IDS.split(",") : [],
-  cursoRoleIds: process.env.CURSO_ROLE_IDS ? process.env.CURSO_ROLE_IDS.split(",") : [],
+  patenteRoleIds: process.env.PATENTE_ROLE_IDS ? process.env.PATENTE_ROLE_IDS.split(",").map(id => id.trim()) : [],
+  unidadeRoleIds: process.env.UNIDADE_ROLE_IDS ? process.env.UNIDADE_ROLE_IDS.split(",").map(id => id.trim()) : [],
+  cursoRoleIds: process.env.CURSO_ROLE_IDS ? process.env.CURSO_ROLE_IDS.split(",").map(id => id.trim()) : [],
 
   // 📅 Sistema de Ausências
   ausenciaRoleId: process.env.AUSENCIA_ROLE_ID,
