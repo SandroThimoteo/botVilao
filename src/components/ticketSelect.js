@@ -17,12 +17,6 @@ export function createTicketSelect() {
           description: 'Solicitação ou informações de curso',
           value: 'Curso',
           emoji: '<:curso:1422311480727965726>'
-        },
-        {
-          label: 'Corregedoria',
-          description: 'Denúncias ou solicitações formais',
-          value: 'Corregedoria',
-          emoji: '<:corregedoria:1422328554938564649>'
         }
       ])
   );
