@@ -15,6 +15,12 @@ export default {
         ),
 
     async execute(interaction) {
+        // Permitir apenas staff com role específica
+        const allowedRoleId = '1428418473205170366';
+        if (!interaction.member.roles.cache.has(allowedRoleId)) {
+            return interaction.reply({ content: '❌ Você não tem permissão para usar este comando.', ephemeral: true });
+        }
+
         const mensagem = interaction.options.getString("mensagem");
 
         const menu = new UserSelectMenuBuilder()
