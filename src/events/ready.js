@@ -6,6 +6,7 @@ import path from 'path';
 import { ChannelType, ActivityType } from 'discord.js';
 import updateRegistry from './updateRegistryInteraction.js';
 import { scheduleChecks } from '../commands/ausencia.js';
+import { startExpirationChecker } from '../structures/expirationChecker.js';
 
 export const name = 'ready';
 export const once = true;
@@ -119,5 +120,13 @@ export default async function ready(client) {
     });
   } catch (e) {
     console.error("❌ Erro ao definir presença:", e);
+  }
+
+  // ⏰ Iniciar verificador de advertências expiradas e exonerações agendadas
+  try {
+      startExpirationChecker(client, 5 * 1000); // ⏱️ TESTE: 5 segundos (produção: 60 * 60 * 1000 = 1 hora)
+    console.log("✅ Verificador de exonerações/advertências iniciado");
+  } catch (e) {
+    console.error("❌ Erro ao iniciar verificador de exonerações:", e);
   }
 }

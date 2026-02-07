@@ -2,6 +2,7 @@ import { SlashCommandBuilder, ModalBuilder, ActionRowBuilder, TextInputBuilder, 
 import fs from 'fs';
 import path from 'path';
 import config from '../config.js';
+import advertenciaTracker from '../structures/advertenciaTracker.js';
 
 const command = new SlashCommandBuilder()
   .setName('advertencia')
@@ -173,6 +174,7 @@ async function handleModal(interaction) {
           await targetMember.roles.add(adv2RoleId, 'Advertência - Segunda Advertência').catch(e => {
             console.error('[Advertencia] Erro ao adicionar 2ª advertência:', e);
           });
+          advertenciaTracker.addAdvertencia(targetMember.id, 2, adv2RoleId);
           punitionLog.push(`⚠️ Adicionada 2ª ADVERTÊNCIA`);
         }
       } else {
@@ -181,6 +183,7 @@ async function handleModal(interaction) {
           await targetMember.roles.add(adv1RoleId, 'Advertência - Primeira Advertência').catch(e => {
             console.error('[Advertencia] Erro ao adicionar 1ª advertência:', e);
           });
+          advertenciaTracker.addAdvertencia(targetMember.id, 1, adv1RoleId);
           punitionLog.push(`⚠️ Adicionada 1ª ADVERTÊNCIA`);
         }
       }
@@ -382,24 +385,10 @@ async function handleModal(interaction) {
       }
 
       // Agendar expulsão em 7 dias (mesmo padrão do comando exoneracao)
-      const kickDelay = 7 * 24 * 60 * 60 * 1000; // 7 dias
-      const timeoutId = setTimeout(async () => {
-        try {
-          await targetMember.kick(`Exoneração automática - Sistema de Advertências. Executado por ${interaction.user.tag}`);
-          
-          await targetChannel.send({
-            content: `🔴 **${targetMember.user.tag}** foi removido do servidor (exoneração automática por advertências).`
-          }).catch(() => {});
-        } catch (error) {
-          console.error(`[Advertencia] Erro ao expulsar ${targetMember.user.tag}:`, error);
-          await targetChannel.send({
-            content: `❌ Não foi possível remover **${targetMember.user.tag}** do servidor.`
-          }).catch(() => {});
-        }
-      }, kickDelay);
-
-      // Guardar informações do agendamento (opcional para rastreamento)
-      console.log(`[Advertencia] Expulsão agendada para ${targetMember.user.tag} em 7 dias - Timeout ID: ${timeoutId._destroyed}`);
+      // ✅ USAR RASTREADOR PERSISTENTE em vez de setTimeout
+      advertenciaTracker.scheduleExoneracao(targetMember.id, interaction.guild.id, interaction.user.id);
+      
+      console.log(`[Advertencia] Exoneração agendada para ${targetMember.user.tag} em 7 dias (persistente via JSON)`);
     } catch (e) {
       console.error('[Advertencia] Erro ao processar exoneração automática:', e);
     }

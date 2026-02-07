@@ -255,14 +255,14 @@ const command = {
         components: [],
       });
 
-      // Agenda a expulsão dos membros em 7 dias
-      const kickDelay = 7 * 24 * 60 * 60 * 1000; // 7 dias em milissegundos
+      // Agenda a expulsão dos membros em 1 dia
+      const kickDelay = 0 * 0 * 0 * 0 * 5000; // 1 dias em milissegundos
       
       data.dados.forEach((d) => {
         const member = d.member;
         const timeoutId = setTimeout(async () => {
           try {
-            await member.kick(`Exoneração automática após 7 dias - Executado por ${interaction.user.tag}`);
+            await member.kick(`Exoneração automática após 1 dia - Executado por ${interaction.user.tag}`);
             
             // Remove do mapa após expulsar
             scheduledKicks.delete(member.id);
