@@ -266,6 +266,12 @@ client.on('interactionCreate', async (interaction) => {
       } else if (interaction.customId.startsWith("course_role_select_")) {
         await updateRegistry.handleCourseSelection(interaction);
         return;
+      } else if (interaction.customId.startsWith("remove_course_role_select_")) {
+        await updateRegistry.handleRemoveCourseSelection(interaction);
+        return;
+      } else if (interaction.customId.startsWith("remove_unit_role_select_")) {
+        await updateRegistry.handleRemoveUnitSelection(interaction);
+        return;
       }
     }
 
@@ -276,6 +282,15 @@ client.on('interactionCreate', async (interaction) => {
         const ausenciaCommand = client.commands.get('ausencia');
         if (ausenciaCommand && ausenciaCommand.handleModal) {
           await ausenciaCommand.handleModal(interaction);
+          return;
+        }
+      }
+
+      // Sistema de Advertências
+      if (interaction.customId === 'advertencia_modal') {
+        const advertenciaCommand = client.commands.get('advertencia');
+        if (advertenciaCommand && advertenciaCommand.handleModal) {
+          await advertenciaCommand.handleModal(interaction);
           return;
         }
       }
