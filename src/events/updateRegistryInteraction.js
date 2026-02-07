@@ -15,6 +15,9 @@ import config from '../config.js';
 // Armazena temporariamente o usuário selecionado
 const tempUserSelection = new Map();
 
+// Armazena temporariamente as remoções pendentes de aprovação
+const pendingRemovals = new Map();
+
 // Mapeamento de IDs de Cargo para Abreviações
 // O usuário deve preencher com os IDs reais dos cargos no Discord.
 const ROLE_ABBREVIATIONS = {
@@ -99,6 +102,18 @@ async function sendUpdatePanel(client) {
                 description: "Certificação de conclusão de curso",
                 value: "update_course",
                 emoji: "<:curso:1422311480727965726>"
+            },
+            {
+                label: "Retirar Curso",
+                description: "Retirar um ou mais cursos",
+                value: "remove_course",
+                emoji: "<:curso:1422311480727965726>"
+            },
+            {
+                label: "Retirar Unidade",
+                description: "Retirar a unidade atribuída",
+                value: "remove_unit",
+                emoji: "<:membros:1422308560053735444>"
             }
         ]);
 
@@ -143,7 +158,64 @@ async function handleButtonInteraction(interaction) {
     }
 
     if (interaction.customId.startsWith("accept_")) {
-        const [, roleId, userId] = interaction.customId.split("_");
+        // Verifica se é uma remoção (accept_removal_)
+        if (interaction.customId.startsWith("accept_removal_")) {
+            const removalId = interaction.customId.replace("accept_removal_", "");
+            
+            if (!pendingRemovals.has(removalId)) {
+                await interaction.deferUpdate().catch(() => { });
+                return;
+            }
+
+            const removalData = pendingRemovals.get(removalId);
+            const member = await interaction.guild.members.fetch(removalData.userId).catch(() => null);
+
+            if (!member) {
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `❌ Erro: Usuário não encontrado` })
+                    .setColor("Red");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+                return;
+            }
+
+            try {
+                if (removalData.type === "course") {
+                    await member.roles.remove(removalData.roleIds, 'Retirada de curso aprovada');
+                    console.log(`[UpdateRegistry] Approved course removal: ${removalData.roleIds.join(', ')} from ${member.id}`);
+                } else if (removalData.type === "unit") {
+                    await member.roles.remove(removalData.roleIds[0], 'Retirada de unidade aprovada');
+                    console.log(`[UpdateRegistry] Approved unit removal: ${removalData.roleIds[0]} from ${member.id}`);
+                }
+
+                pendingRemovals.delete(removalId);
+
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `✅ Aprovado por ${interaction.user.tag}` })
+                    .setColor("Green");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
+                // Notifica o usuário
+                try {
+                    const roleNames = removalData.roleIds.map(id => interaction.guild.roles.cache.get(id)?.name).join(", ");
+                    await member.send(`✅ Sua remoção de **${roleNames}** foi aprovada!`);
+                } catch (e) { }
+            } catch (err) {
+                console.error(`[UpdateRegistry] Erro ao processar remoção:`, err);
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `❌ Erro ao processar remoção` })
+                    .setColor("Red");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+            }
+            return;
+        }
+
+        const [, ...parts] = interaction.customId.split("_");
+        const userId = parts[parts.length - 1];
+        const roleId = parts[parts.length - 2];
+
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
         const role = interaction.guild.roles.cache.get(roleId);
 
@@ -254,7 +326,36 @@ async function handleButtonInteraction(interaction) {
     }
 
     if (interaction.customId.startsWith("reject_")) {
-        const [, userId] = interaction.customId.split("_");
+        // Verifica se é uma rejeição de remoção (reject_removal_)
+        if (interaction.customId.startsWith("reject_removal_")) {
+            const removalId = interaction.customId.replace("reject_removal_", "");
+            
+            if (!pendingRemovals.has(removalId)) {
+                await interaction.deferUpdate().catch(() => { });
+                return;
+            }
+
+            const removalData = pendingRemovals.get(removalId);
+            const member = await interaction.guild.members.fetch(removalData.userId).catch(() => null);
+            
+            pendingRemovals.delete(removalId);
+
+            await interaction.deferUpdate().catch(() => { });
+            const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                .setFooter({ text: `❌ Rejeitado por ${interaction.user.tag}` })
+                .setColor("Red");
+            await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
+            if (member) {
+                try {
+                    await member.send(`❌ Sua solicitação de remoção foi rejeitada pela staff.`);
+                } catch (e) { }
+            }
+            return;
+        }
+
+        const [, ...parts] = interaction.customId.split("_");
+        const userId = parts[parts.length - 1];
         const member = await interaction.guild.members.fetch(userId).catch(() => null);
 
         // Edita a embed para recusado
@@ -314,6 +415,10 @@ async function handleUserSelection(interaction) {
             await showUnitRoleSelect(interaction, member);
         } else if (type === "update_course") {
             await showCourseRoleSelect(interaction, member);
+        } else if (type === "remove_course") {
+            await showRemoveCourseRoleSelect(interaction, member);
+        } else if (type === "remove_unit") {
+            await showRemoveUnitRoleSelect(interaction, member);
         }
     }
 }
@@ -426,6 +531,38 @@ async function showCourseRoleSelect(interaction, member) {
     });
 }
 
+async function showRemoveCourseRoleSelect(interaction, member) {
+    const roleMenu = new RoleSelectMenuBuilder()
+        .setCustomId(`remove_course_role_select_${member.id}`)
+        .setPlaceholder("🎓 Selecione o(s) curso(s) para remover")
+        .setMinValues(1)
+        .setMaxValues(25);
+
+    const row = new ActionRowBuilder().addComponents(roleMenu);
+
+    await interaction.reply({
+        content: `**Selecione o(s) curso(s) para remover de ${member}:**`,
+        components: [row],
+        ephemeral: true
+    });
+}
+
+async function showRemoveUnitRoleSelect(interaction, member) {
+    const roleMenu = new RoleSelectMenuBuilder()
+        .setCustomId(`remove_unit_role_select_${member.id}`)
+        .setPlaceholder("🏛️ Selecione a unidade para remover")
+        .setMinValues(1)
+        .setMaxValues(1);
+
+    const row = new ActionRowBuilder().addComponents(roleMenu);
+
+    await interaction.reply({
+        content: `**Selecione a unidade para remover de ${member}:**`,
+        components: [row],
+        ephemeral: true
+    });
+}
+
 // -------------------- HANDLERS DE CARGOS --------------------
 async function handleRankSelection(interaction) {
     if (interaction.customId.startsWith("rank_role_select_")) {
@@ -493,8 +630,73 @@ async function handleCourseSelection(interaction) {
     }
 }
 
+async function handleRemoveCourseSelection(interaction) {
+    if (interaction.customId.startsWith("remove_course_role_select_")) {
+        const userId = interaction.customId.split("_").pop();
+        const roleIds = interaction.values;
+
+        const member = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (!member) return interaction.reply({ content: "❌ Usuário não encontrado.", ephemeral: true });
+
+        // Valida se todos os cargos são cursos válidos
+        const invalidRoles = roleIds.filter(id => !config.cursoRoleIds.includes(id));
+        if (invalidRoles.length > 0) {
+            return interaction.reply({ content: "❌ Alguns cargos selecionados não são cursos válidos.", ephemeral: true });
+        }
+
+        const roleNames = roleIds.map(id => interaction.guild.roles.cache.get(id)?.name || "Desconhecido").join(", ");
+        
+        // Gera um ID único para esta solicitação de remoção (timestamp)
+        const removalId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        pendingRemovals.set(removalId, {
+            type: "course",
+            userId: member.id,
+            roleIds: roleIds
+        });
+
+        await sendUpdateLog(interaction, "Retirada de Curso", {
+            "Curso(s) para Remover": roleNames,
+            "Usuário": `${member}`,
+            "Quantidade": roleIds.length.toString()
+        }, removalId, member, true);
+
+        await interaction.reply({ content: `✅ Solicitação para remover curso(s) de **${member}** enviada com sucesso.`, ephemeral: true });
+    }
+}
+
+async function handleRemoveUnitSelection(interaction) {
+    if (interaction.customId.startsWith("remove_unit_role_select_")) {
+        const userId = interaction.customId.split("_").pop();
+        const roleId = interaction.values[0];
+
+        if (!config.unidadeRoleIds.includes(roleId)) {
+            return interaction.reply({ content: "❌ Esse cargo não é uma unidade válida.", ephemeral: true });
+        }
+
+        const role = interaction.guild.roles.cache.get(roleId);
+        const member = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (!role || !member) return interaction.reply({ content: "❌ Cargo ou usuário não encontrado.", ephemeral: true });
+
+        // Gera um ID único para esta solicitação de remoção (timestamp)
+        const removalId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        pendingRemovals.set(removalId, {
+            type: "unit",
+            userId: member.id,
+            roleIds: [roleId]
+        });
+
+        // Envia para aprovação
+        await sendUpdateLog(interaction, "Retirada de Unidade", {
+            "Unidade para Remover": role.name,
+            "Usuário": `${member}`
+        }, removalId, member, true);
+
+        await interaction.reply({ content: `✅ Solicitação para remover unidade **${role.name}** de **${member}** enviada com sucesso.`, ephemeral: true });
+    }
+}
+
 // -------------------- LOG --------------------
-async function sendUpdateLog(interaction, type, data, roleId = null, member = null) {
+async function sendUpdateLog(interaction, type, data, roleId = null, member = null, isRemoval = false) {
     const logChannel = interaction.guild.channels.cache.get(config.channelLogAtt);
     if (!logChannel) {
         console.error("❌ Canal de log não encontrado!");
@@ -520,12 +722,12 @@ async function sendUpdateLog(interaction, type, data, roleId = null, member = nu
     if (roleId && member) {
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(`accept_${roleId}_${member.id}`)
+                .setCustomId(isRemoval ? `accept_removal_${roleId}` : `accept_${roleId}_${member.id}`)
                 .setLabel("Aceitar")
                 .setEmoji("✅")
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
-                .setCustomId(`reject_${member.id}`)
+                .setCustomId(isRemoval ? `reject_removal_${roleId}` : `reject_${member.id}`)
                 .setLabel("Recusar")
                 .setEmoji("❌")
                 .setStyle(ButtonStyle.Danger)
@@ -547,5 +749,7 @@ export default {
     handleModalSubmit,
     handleRankSelection,
     handleUnitSelection,
-    handleCourseSelection
+    handleCourseSelection,
+    handleRemoveCourseSelection,
+    handleRemoveUnitSelection
 };

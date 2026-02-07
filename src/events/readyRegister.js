@@ -159,8 +159,10 @@ export default async function readyRegister(client) {
   }
 
 
-  // interaction handler
-  client.on("interactionCreate", async (interaction) => {
+  // interaction handler - registra apenas uma vez
+  if (!client._readyRegisterInitialized) {
+    client._readyRegisterInitialized = true;
+    client.on("interactionCreate", async (interaction) => {
     try {
       // BUTTONS: open modals
       if (interaction.isButton()) {
@@ -185,6 +187,7 @@ export default async function readyRegister(client) {
               new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("nome").setLabel("Nome").setStyle(TextInputStyle.Short).setRequired(true)),
               new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("sobrenome").setLabel("Sobrenome").setStyle(TextInputStyle.Short).setRequired(true)),
               new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("passaporte").setLabel("Passaporte").setStyle(TextInputStyle.Short).setRequired(true)),
+              new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("unidade").setLabel("Unidade").setStyle(TextInputStyle.Short).setRequired(true)),
               new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId("indicador").setLabel("Passaporte do Indicador").setStyle(TextInputStyle.Short).setRequired(true))
             );
           return interaction.showModal(modal);
@@ -193,7 +196,7 @@ export default async function readyRegister(client) {
         // Approve/Reject buttons from log
         if (interaction.customId.startsWith("reg_approve_") || interaction.customId.startsWith("reg_reject_")) {
           const isApprove = interaction.customId.startsWith("reg_approve_");
-          const regId = interaction.customId.split("reg_approve_").pop() || interaction.customId.split("reg_reject_").pop();
+          const regId = interaction.customId.replace(/^reg_(approve|reject)_/, "");
           const regs = loadRegistrations();
           const entry = regs[regId];
           if (!entry) return interaction.reply({ content: "Registro não encontrado (já processado ou expirado).", ephemeral: true });
@@ -219,13 +222,32 @@ export default async function readyRegister(client) {
 
           if (isApprove) {
             // apply nickname and roles
-            const nickname = `AL | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}`;
+            const prefix = entry.type === "indicacao" ? "SD" : "AL";
+            const nickname = `${prefix} | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}`;
+            console.log(`[readyRegister] Aprovando registro tipo: ${entry.type}`);
             try {
               await targetMember.setNickname(nickname);
             } catch (e) {}
             try {
-              if (client.config.role1Id) await targetMember.roles.add(client.config.role1Id).catch(()=>{});
-              if (client.config.role2Id) await targetMember.roles.add(client.config.role2Id).catch(()=>{});
+              // Se for indicação: só role2Id e soldadoRoleId
+              // Se for convencional: role1Id e role2Id
+              if (entry.type === "indicacao") {
+                console.log(`[readyRegister] Adicionando cargos de INDICACAO`);
+                if (client.config.role2Id) await targetMember.roles.add(client.config.role2Id).catch(()=>{});
+                if (client.config.soldadoRoleId) await targetMember.roles.add(client.config.soldadoRoleId).catch(()=>{});
+              } else {
+                console.log(`[readyRegister] Adicionando cargos de CONVENCIONAL`);
+                if (client.config.role1Id) await targetMember.roles.add(client.config.role1Id).catch(()=>{});
+                if (client.config.role2Id) await targetMember.roles.add(client.config.role2Id).catch(()=>{});
+              }
+              
+              // Se for indicação, adicionar cargo da unidade
+              if (entry.type === "indicacao" && entry.unidade && client.config.unidadesCargos) {
+                const cargoUnidade = client.config.unidadesCargos[entry.unidade.toUpperCase()];
+                if (cargoUnidade) {
+                  await targetMember.roles.add(cargoUnidade).catch(()=>{});
+                }
+              }
             } catch (e) {}
 
             entry.status = "approved";
@@ -242,7 +264,7 @@ export default async function readyRegister(client) {
 
             
 try {
-  await targetMember.send(`✅ Olá ${entry.nome}, seu registro (AL | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}) foi aprovado.`).catch(()=>{});
+  await targetMember.send(`✅ Olá ${entry.nome}, seu registro (${prefix} | ${entry.nome} ${entry.sobrenome} #${entry.passaporte}) foi aprovado.`).catch(()=>{});
 } catch(e) {}
 await interaction.reply({ content: "✅ Registro aprovado e cargos atribuídos.", ephemeral: true });
           } else {
@@ -279,6 +301,7 @@ await interaction.reply({ content: "✅ Registro aprovado e cargos atribuídos."
           const nome = interaction.fields.getTextInputValue("nome");
           const sobrenome = interaction.fields.getTextInputValue("sobrenome");
           const passaporte = interaction.fields.getTextInputValue("passaporte");
+          const unidade = isIndicacao ? interaction.fields.getTextInputValue("unidade") : null;
           const autorizado = isIndicacao ? interaction.fields.getTextInputValue("indicador") : interaction.fields.getTextInputValue("autorizado");
 
           const regId = generateId();
@@ -289,6 +312,7 @@ await interaction.reply({ content: "✅ Registro aprovado e cargos atribuídos."
             userId: interaction.user.id,
             type: isIndicacao ? "indicacao" : "convencional",
             nome, sobrenome, passaporte,
+            unidade,
             autorizado,
             status: "pending",
             createdAt: Date.now(),
@@ -314,8 +338,9 @@ if (logChannel) {
         { name: "ID Cidade", value: passaporte, inline: false },
         { name: "Usuário", value: `<@${interaction.user.id}>`, inline: false },
         { name: "ID de Discord", value: interaction.user.id, inline: false },
+        { name: "Unidade", value: unidade, inline: false },
         { name: "Indicado por", value: indicatorMember ? `<@${indicatorMember.id}> (${autorizado})` : `${autorizado} (não encontrado)`, inline: false },
-        { name: "Cargo", value: `<@&${client.config.role1Id}>`, inline: false },
+        { name: "Cargos", value: `<@&${client.config.role2Id}>\n<@&${client.config.soldadoRoleId}>`, inline: false },
         { name: "Status", value: "⏳ Aguardando análise", inline: false }
       )
       .setFooter({ text: `Enviado por ${interaction.user.tag}` })
@@ -371,5 +396,6 @@ if (logChannel) {
       console.error("[readyRegister] interaction handler error:", err);
       try { if (interaction && !interaction.replied) interaction.reply({ content: "Ocorreu um erro ao processar.", ephemeral: true }); } catch(e) {}
     }
-  });
+    });
+  }
 }
