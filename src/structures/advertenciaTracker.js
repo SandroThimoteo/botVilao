@@ -101,7 +101,7 @@ class AdvertenciaTracker {
     data[userId].exoneracoes_agendadas.push({
       userId,
       guildId,
-      scheduledFor: Date.now() + 5000, // ⏱️ TESTE: 5 segundos (em produção: 7 * 24 * 60 * 60 * 1000)
+      scheduledFor: Date.now() + (1 * 24 * 60 * 60 * 1000), // ⏱️ 1 dia em milissegundos
       processedBy,
       createdAt: Date.now()
     });

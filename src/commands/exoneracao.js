@@ -251,12 +251,12 @@ const command = {
       }
 
       await interaction.editReply({
-        content: "✅ **Exonerações registradas com sucesso!**\n⏰ Os membros serão removidos do servidor em **7 dias**.",
+        content: "✅ **Exonerações registradas com sucesso!**\n⏰ Os membros serão removidos do servidor em **1 dia**.",
         components: [],
       });
 
       // Agenda a expulsão dos membros em 1 dia
-      const kickDelay = 0 * 0 * 0 * 0 * 5000; // 1 dias em milissegundos
+      const kickDelay = 1 * 24 * 60 * 60 * 1000; // 1 dia em milissegundos
       
       data.dados.forEach((d) => {
         const member = d.member;

@@ -18,6 +18,9 @@ const tempUserSelection = new Map();
 // Armazena temporariamente as remoções pendentes de aprovação
 const pendingRemovals = new Map();
 
+// Armazena temporariamente as aprovações de cursos pendentes
+const pendingCourseApprovals = new Map();
+
 // Mapeamento de IDs de Cargo para Abreviações
 // O usuário deve preencher com os IDs reais dos cargos no Discord.
 const ROLE_ABBREVIATIONS = {
@@ -158,6 +161,55 @@ async function handleButtonInteraction(interaction) {
     }
 
     if (interaction.customId.startsWith("accept_")) {
+        // Verifica se é uma aprovação de cursos (accept_course_)
+        if (interaction.customId.startsWith("accept_course_")) {
+            const approvalId = interaction.customId.replace("accept_course_", "");
+            
+            if (!pendingCourseApprovals.has(approvalId)) {
+                await interaction.deferUpdate().catch(() => { });
+                return;
+            }
+
+            const courseData = pendingCourseApprovals.get(approvalId);
+            const member = await interaction.guild.members.fetch(courseData.userId).catch(() => null);
+
+            if (!member) {
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `❌ Erro: Usuário não encontrado` })
+                    .setColor("Red");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+                return;
+            }
+
+            try {
+                await member.roles.add(courseData.roleIds, 'Curso aprovado');
+                console.log(`[UpdateRegistry] Approved courses: ${courseData.roleIds.join(', ')} to ${member.id}`);
+
+                pendingCourseApprovals.delete(approvalId);
+
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `✅ Aprovado por ${interaction.user.tag}` })
+                    .setColor("Green");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
+                // Notifica o usuário
+                try {
+                    const roleNames = courseData.roleIds.map(id => interaction.guild.roles.cache.get(id)?.name).join(", ");
+                    await member.send(`✅ Seu(s) curso(s) **${roleNames}** foi(foram) aprovado(s)!`);
+                } catch (e) { }
+            } catch (err) {
+                console.error(`[UpdateRegistry] Erro ao aprovar cursos:`, err);
+                await interaction.deferUpdate().catch(() => { });
+                const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                    .setFooter({ text: `❌ Erro ao processar aprovação` })
+                    .setColor("Red");
+                await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+            }
+            return;
+        }
+
         // Verifica se é uma remoção (accept_removal_)
         if (interaction.customId.startsWith("accept_removal_")) {
             const removalId = interaction.customId.replace("accept_removal_", "");
@@ -230,7 +282,8 @@ async function handleButtonInteraction(interaction) {
         else if (config.cursoRoleIds.includes(roleId)) category = "cursoRoleIds";
 
         // Remove todos os cargos daquela categoria antes de adicionar o novo
-        if (category) {
+        // EXCEÇÃO: Para cursos, não remove os existentes (permite múltiplos)
+        if (category && category !== "cursoRoleIds") {
             // Calcula apenas os cargos que o membro realmente possui e que pertencem
             // à categoria configurada, excluindo o cargo que será adicionado.
             const categoryIds = config[category].map(id => id.toString());
@@ -326,6 +379,35 @@ async function handleButtonInteraction(interaction) {
     }
 
     if (interaction.customId.startsWith("reject_")) {
+        // Verifica se é uma rejeição de cursos (reject_course_)
+        if (interaction.customId.startsWith("reject_course_")) {
+            const approvalId = interaction.customId.replace("reject_course_", "");
+            
+            if (!pendingCourseApprovals.has(approvalId)) {
+                await interaction.deferUpdate().catch(() => { });
+                return;
+            }
+
+            const courseData = pendingCourseApprovals.get(approvalId);
+            const member = await interaction.guild.members.fetch(courseData.userId).catch(() => null);
+            
+            pendingCourseApprovals.delete(approvalId);
+
+            await interaction.deferUpdate().catch(() => { });
+            const embed = EmbedBuilder.from(interaction.message.embeds[0])
+                .setFooter({ text: `❌ Rejeitado por ${interaction.user.tag}` })
+                .setColor("Red");
+            await interaction.editReply({ embeds: [embed], components: [] }).catch(() => { });
+
+            if (member) {
+                try {
+                    const roleNames = courseData.roleIds.map(id => interaction.guild.roles.cache.get(id)?.name).join(", ");
+                    await member.send(`❌ Sua solicitação de curso(s) **${roleNames}** foi rejeitada pela staff.`);
+                } catch (e) { }
+            }
+            return;
+        }
+
         // Verifica se é uma rejeição de remoção (reject_removal_)
         if (interaction.customId.startsWith("reject_removal_")) {
             const removalId = interaction.customId.replace("reject_removal_", "");
@@ -520,12 +602,14 @@ async function showUnitRoleSelect(interaction, member) {
 async function showCourseRoleSelect(interaction, member) {
     const roleMenu = new RoleSelectMenuBuilder()
         .setCustomId(`course_role_select_${member.id}`)
-        .setPlaceholder("🎓 Selecione o curso");
+        .setPlaceholder("🎓 Selecione o(s) curso(s)")
+        .setMinValues(1)
+        .setMaxValues(25);
 
     const row = new ActionRowBuilder().addComponents(roleMenu);
 
     await interaction.reply({
-        content: `**Selecione o curso para ${member}:**`,
+        content: `**Selecione o(s) curso(s) para ${member}:**`,
         components: [row],
         ephemeral: true
     });
@@ -611,22 +695,34 @@ async function handleUnitSelection(interaction) {
 async function handleCourseSelection(interaction) {
     if (interaction.customId.startsWith("course_role_select_")) {
         const userId = interaction.customId.split("_").pop();
-        const roleId = interaction.values[0];
+        const roleIds = interaction.values;
 
-        if (!config.cursoRoleIds.includes(roleId)) {
-            return interaction.reply({ content: "❌ Esse cargo não é permitido para cursos.", ephemeral: true });
+        const member = await interaction.guild.members.fetch(userId).catch(() => null);
+        if (!member) return interaction.reply({ content: "❌ Usuário não encontrado.", ephemeral: true });
+
+        // Valida se todos os cargos são cursos válidos
+        const invalidRoles = roleIds.filter(id => !config.cursoRoleIds.includes(id));
+        if (invalidRoles.length > 0) {
+            return interaction.reply({ content: "❌ Alguns cargos selecionados não são cursos válidos.", ephemeral: true });
         }
 
-        const role = interaction.guild.roles.cache.get(roleId);
-        const member = await interaction.guild.members.fetch(userId).catch(() => null);
-        if (!role || !member) return interaction.reply({ content: "❌ Cargo ou usuário não encontrado.", ephemeral: true });
+        const roleNames = roleIds.map(id => interaction.guild.roles.cache.get(id)?.name || "Desconhecido").join(", ");
+        
+        // Gera um ID único para esta solicitação de aprovação (sem concatenar todos os IDs)
+        const approvalId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        pendingCourseApprovals.set(approvalId, {
+            type: "course",
+            userId: member.id,
+            roleIds: roleIds
+        });
 
         await sendUpdateLog(interaction, "Solicitação de Curso", {
-            "Curso Solicitado": role.name,
-            "Usuário": `${member}`
-        }, roleId, member);
+            "Curso(s) Solicitado(s)": roleNames,
+            "Usuário": `${member}`,
+            "Quantidade": roleIds.length.toString()
+        }, approvalId, member, true);
 
-        await interaction.reply({ content: `✅ Solicitação de curso **${role.name}** enviada para **${member}**.`, ephemeral: true });
+        await interaction.reply({ content: `✅ Solicitação de curso(s) **${roleNames}** enviada para **${member}**.`, ephemeral: true });
     }
 }
 
@@ -696,7 +792,7 @@ async function handleRemoveUnitSelection(interaction) {
 }
 
 // -------------------- LOG --------------------
-async function sendUpdateLog(interaction, type, data, roleId = null, member = null, isRemoval = false) {
+async function sendUpdateLog(interaction, type, data, roleId = null, member = null, isRemoval = false, courseType = null) {
     const logChannel = interaction.guild.channels.cache.get(config.channelLogAtt);
     if (!logChannel) {
         console.error("❌ Canal de log não encontrado!");
@@ -720,14 +816,17 @@ async function sendUpdateLog(interaction, type, data, roleId = null, member = nu
 
     const components = [];
     if (roleId && member) {
+        // Detecta se é uma aprovação de cursos (Solicitação de Curso)
+        const isCourseApproval = type === "Solicitação de Curso";
+        
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
-                .setCustomId(isRemoval ? `accept_removal_${roleId}` : `accept_${roleId}_${member.id}`)
+                .setCustomId(isCourseApproval ? `accept_course_${roleId}` : isRemoval ? `accept_removal_${roleId}` : `accept_${roleId}_${member.id}`)
                 .setLabel("Aceitar")
                 .setEmoji("✅")
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
-                .setCustomId(isRemoval ? `reject_removal_${roleId}` : `reject_${member.id}`)
+                .setCustomId(isCourseApproval ? `reject_course_${roleId}` : isRemoval ? `reject_removal_${roleId}` : `reject_${member.id}`)
                 .setLabel("Recusar")
                 .setEmoji("❌")
                 .setStyle(ButtonStyle.Danger)
