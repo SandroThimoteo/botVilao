@@ -164,7 +164,7 @@ async function handleButtonInteraction(interaction) {
         // Verifica se é uma aprovação de cursos (accept_course_)
         if (interaction.customId.startsWith("accept_course_")) {
             const approvalId = interaction.customId.replace("accept_course_", "");
-            
+
             if (!pendingCourseApprovals.has(approvalId)) {
                 await interaction.deferUpdate().catch(() => { });
                 return;
@@ -213,7 +213,7 @@ async function handleButtonInteraction(interaction) {
         // Verifica se é uma remoção (accept_removal_)
         if (interaction.customId.startsWith("accept_removal_")) {
             const removalId = interaction.customId.replace("accept_removal_", "");
-            
+
             if (!pendingRemovals.has(removalId)) {
                 await interaction.deferUpdate().catch(() => { });
                 return;
@@ -326,44 +326,48 @@ async function handleButtonInteraction(interaction) {
         // Lógica para atualização PARCIAL do apelido (apenas o cargo)
         // O objetivo é substituir o cargo, mantendo o restante do apelido (nome #passaporte).
 
-        let currentNickname = member.nickname || member.user.username;
+        //let currentNickname = member.nickname || member.user.username;
 
         // 0. Remoção de caracteres indesejados (como '・' ou '・' ou '.')
         // Aplica a remoção no apelido atual antes de qualquer processamento
         // Remoção agressiva de caracteres indesejados no início da string.
         // Revertendo a remoção agressiva. A limpeza do '・' será feita apenas na parte do nome/passaporte.
-
-        let nameAndPassport = currentNickname;
-
         // 1. Tenta identificar e remover o prefixo de cargo antigo (Ex: "3ºsgt | ")
-        const pipeIndex = currentNickname.indexOf(' | ');
         // Se o apelido começar com o cargo, removemos o cargo para obter apenas o nome/passaporte
-        if (pipeIndex !== -1) {
-            // Se encontrar o separador, assume que o restante é o nome #passaporte
-            nameAndPassport = currentNickname.substring(pipeIndex + 3).trim();
+        if (category === "patenteRoleIds") {
+            let currentNickname = member.nickname || member.user.username;
+            let nameAndPassport = currentNickname;
 
-            // Aplica a remoção do caractere '・' (U+30FB) e outros pontos na parte do nome/passaporte
-            nameAndPassport = nameAndPassport.replace(/[\u30FB\u00B7\u2022]/g, '').trim();
-        } else {
-            // Se não encontrar, usa o nome de usuário do Discord como fallback,
-            // já que o nome #passaporte depende de dados externos.
-            nameAndPassport = member.user.username;
+            const pipeIndex = currentNickname.indexOf(' | ');
+            if (pipeIndex !== -1) {
+                // Se encontrar o separador, assume que o restante é o nome #passaporte
+                nameAndPassport = currentNickname.substring(pipeIndex + 3).trim();
+
+                // Aplica a remoção do caractere '・' (U+30FB) e outros pontos na parte do nome/passaporte
+                nameAndPassport = nameAndPassport.replace(/[\u30FB\u00B7\u2022]/g, '').trim();
+            } else {
+                // Se não encontrar, usa o nome de usuário do Discord como fallback,
+                // já que o nome #passaporte depende de dados externos.
+                nameAndPassport = member.user.username;
+            }
+
+
+
+            // 2. Constrói o novo apelido completo
+
+            // 2. Constrói o novo apelido completo
+
+            // Converte o nome do cargo para a abreviação solicitada
+            const roleAbbreviation = getRoleAbbreviation(roleId, role.name);
+
+            const newNickname = `${roleAbbreviation} | ${nameAndPassport}`;
+
+            await member.setNickname(newNickname).catch(err => {
+                console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
+            });
         }
 
 
-
-        // 2. Constrói o novo apelido completo
-
-        // 2. Constrói o novo apelido completo
-
-        // Converte o nome do cargo para a abreviação solicitada
-        const roleAbbreviation = getRoleAbbreviation(roleId, role.name);
-
-        const newNickname = `${roleAbbreviation} | ${nameAndPassport}`;
-
-        await member.setNickname(newNickname).catch(err => {
-            console.error(`[UpdateRegistry] Falha ao atualizar apelido do membro ${member.id}:`, err);
-        });
 
         // Edita a embed para aprovado
         const embed = EmbedBuilder.from(interaction.message.embeds[0])
@@ -382,7 +386,7 @@ async function handleButtonInteraction(interaction) {
         // Verifica se é uma rejeição de cursos (reject_course_)
         if (interaction.customId.startsWith("reject_course_")) {
             const approvalId = interaction.customId.replace("reject_course_", "");
-            
+
             if (!pendingCourseApprovals.has(approvalId)) {
                 await interaction.deferUpdate().catch(() => { });
                 return;
@@ -390,7 +394,7 @@ async function handleButtonInteraction(interaction) {
 
             const courseData = pendingCourseApprovals.get(approvalId);
             const member = await interaction.guild.members.fetch(courseData.userId).catch(() => null);
-            
+
             pendingCourseApprovals.delete(approvalId);
 
             await interaction.deferUpdate().catch(() => { });
@@ -411,7 +415,7 @@ async function handleButtonInteraction(interaction) {
         // Verifica se é uma rejeição de remoção (reject_removal_)
         if (interaction.customId.startsWith("reject_removal_")) {
             const removalId = interaction.customId.replace("reject_removal_", "");
-            
+
             if (!pendingRemovals.has(removalId)) {
                 await interaction.deferUpdate().catch(() => { });
                 return;
@@ -419,7 +423,7 @@ async function handleButtonInteraction(interaction) {
 
             const removalData = pendingRemovals.get(removalId);
             const member = await interaction.guild.members.fetch(removalData.userId).catch(() => null);
-            
+
             pendingRemovals.delete(removalId);
 
             await interaction.deferUpdate().catch(() => { });
@@ -707,7 +711,7 @@ async function handleCourseSelection(interaction) {
         }
 
         const roleNames = roleIds.map(id => interaction.guild.roles.cache.get(id)?.name || "Desconhecido").join(", ");
-        
+
         // Gera um ID único para esta solicitação de aprovação (sem concatenar todos os IDs)
         const approvalId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         pendingCourseApprovals.set(approvalId, {
@@ -741,7 +745,7 @@ async function handleRemoveCourseSelection(interaction) {
         }
 
         const roleNames = roleIds.map(id => interaction.guild.roles.cache.get(id)?.name || "Desconhecido").join(", ");
-        
+
         // Gera um ID único para esta solicitação de remoção (timestamp)
         const removalId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         pendingRemovals.set(removalId, {
@@ -818,7 +822,7 @@ async function sendUpdateLog(interaction, type, data, roleId = null, member = nu
     if (roleId && member) {
         // Detecta se é uma aprovação de cursos (Solicitação de Curso)
         const isCourseApproval = type === "Solicitação de Curso";
-        
+
         const buttons = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(isCourseApproval ? `accept_course_${roleId}` : isRemoval ? `accept_removal_${roleId}` : `accept_${roleId}_${member.id}`)
